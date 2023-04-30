@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/src/foundation/key.dart';
-import 'package:flutter/src/widgets/framework.dart';
-import 'package:flutter/src/widgets/placeholder.dart';
+
 import 'package:super_editor/src/infrastructure/super_textfield/super_textfield.dart';
 import 'package:super_text_layout/super_text_layout.dart';
 
+/// A widget that positions the OS emoji & symbols toolbar at the text field's selection.
 class SuperTextFieldImeControls extends StatefulWidget {
   const SuperTextFieldImeControls({
     Key? key,
@@ -14,15 +13,17 @@ class SuperTextFieldImeControls extends StatefulWidget {
     required this.child,
   }) : super(key: key);
 
-  final ImeAttributedTextEditingController textController;
-
-  /// [FocusNode] of thee text field.
-  final FocusNode focusNode;
-
   /// [GlobalKey] that links this [SuperTextFieldGestureInteractor] to
-  /// the [ProseTextLayout] widget that paints the text for this text field.
+  /// the [ProseTextLayout] widget that paints the text for the text field.
   final GlobalKey<ProseTextState> textKey;
 
+  /// Controller that owns the text content and text selection for the text field.
+  final ImeAttributedTextEditingController textController;
+
+  /// [FocusNode] of the text field.
+  final FocusNode focusNode;
+
+  /// The rest of the subtree for the text field.
   final Widget child;
 
   @override
@@ -34,7 +35,6 @@ class _SuperTextFieldImeControlsState extends State<SuperTextFieldImeControls> {
   void initState() {
     super.initState();
     widget.textController.addListener(_onContentChanged);
-
     widget.focusNode.addListener(_onFocusChanged);
 
     if (widget.focusNode.hasFocus) {
@@ -80,103 +80,67 @@ class _SuperTextFieldImeControlsState extends State<SuperTextFieldImeControls> {
     }
 
     _updateImeVisualInformation();
-
-    widget.textController.showKeyboard();
   }
 
   void _onContentChanged() {
     _updateImeVisualInformation();
   }
 
-  void _updateComposingRectIfNeeded() {
-    if (!widget.textController.isAttachedToIme) {
-      return;
-    }
+  /// Update our size, transform to the root node coordinates, and caret rect on the IME.
+  void _updateImeVisualInformation() {
+    _updateSizeAndTransform();
+    _updateCaretRectIfNeeded();
 
-    final composingRegion = widget.textController.composingRegion;
-
-    final text = widget.textKey.currentState;
-    if (text == null) {
-      return;
-    }
-
-    final selection = widget.textController.selection;
-    if (!selection.isValid) {
-      return;
-    }
-
-    final textLayout = text.textLayout;
-
-    final boxes = textLayout.getBoxesForSelection(selection);
-    if (boxes.isEmpty) {
-      return;
-    }
-
-    final composingRect = boxes.first.toRect();
-
-    //final box = textLayout.getCharacterBox(TextPosition(offset: selection.baseOffset));
-
-    widget.textController.setComposingRect(composingRect);
-
-    //SchedulerBinding.instance.addPostFrameCallback((Duration _) => _updateComposingRectIfNeeded());
+    // Without showing the keyboard, the panel is always positioned at the screen center after the first time.
+    // I'm not sure why this is needed in SuperTextField, but not in SuperEditor.
+    widget.textController.showKeyboard();
   }
 
-  void _updateCaretRectIfNeeded() {
-    if (!widget.textController.isAttachedToIme) {
-      return;
-    }
-
-    //SchedulerBinding.instance.addPostFrameCallback((Duration _) => _updateCaretRectIfNeeded());
-
-    final text = widget.textKey.currentState;
-    if (text == null) {
-      return;
-    }
-
-    final textLayout = text.textLayout;
-
-    final selection = widget.textController.selection;
-    if (!selection.isValid || !selection.isCollapsed) {
-      return;
-    }
-
-    //final TextPosition currentTextPosition = TextPosition(offset: renderEditable.selection!.baseOffset);
-    final textRenderBox = text.context.findRenderObject() as RenderBox;
-    final myRenderBox = context.findRenderObject() as RenderBox;
-
-    final textOffset = myRenderBox.globalToLocal(textRenderBox.localToGlobal(Offset.zero));
-
-    final position = TextPosition(offset: selection.baseOffset);
-    final caretOffset = textLayout.getOffsetForCaret(position);
-    final caretHeight = textLayout.getHeightForCaret(position) ?? 0;
-    //final box = textLayout.getCharacterBox(TextPosition(offset: selection.baseOffset));
-    final box = caretOffset & Size(1, caretHeight);
-
-    if (box == null) {
-      return;
-    }
-
-    widget.textController.setCaretRect(box.shift(textOffset));
-  }
-
+  /// Update our size and transform to the root node coordinates.
+  ///
+  /// The OS uses the transformer to convert the position from our local coordianates to global coordinates.
   void _updateSizeAndTransform() {
     if (!widget.textController.isAttachedToIme) {
       return;
     }
 
     final renderBox = context.findRenderObject() as RenderBox;
-    final transform = renderBox.getTransformTo(null); //
 
-    widget.textController.setEditableSizeAndTransform(renderBox.size, transform);
-
-    //SchedulerBinding.instance.addPostFrameCallback((Duration _) => _updateSizeAndTransform());
+    widget.textController.setEditableSizeAndTransform(renderBox.size, renderBox.getTransformTo(null));
   }
 
-  void _updateImeVisualInformation() {
-    _updateSizeAndTransform();
-    _updateCaretRectIfNeeded();
-    _updateComposingRectIfNeeded();
-    widget.textController.showKeyboard();
+  /// Set the caret rect on IME.
+  void _updateCaretRectIfNeeded() {
+    if (!widget.textController.isAttachedToIme) {
+      return;
+    }
+
+    final text = widget.textKey.currentState;
+    if (text == null) {
+      return;
+    }
+
+    final selection = widget.textController.selection;
+    if (!selection.isValid || !selection.isCollapsed) {
+      // The panel is displayed only for collapsed selections.
+      return;
+    }
+
+    final renderBox = context.findRenderObject() as RenderBox;
+
+    // Compute the caret rect in the text layout space.
+    final position = TextPosition(offset: selection.baseOffset);
+    final textLayout = text.textLayout;
+    final caretOffset = textLayout.getOffsetForCaret(position);
+    final caretHeight = textLayout.getHeightForCaret(position) ?? 0;
+    final caretRect = caretOffset & Size(1, caretHeight);
+
+    // Convert the coordinates from the text layout space to the text field space.
+    final textRenderBox = text.context.findRenderObject() as RenderBox;
+    final textOffset = renderBox.globalToLocal(textRenderBox.localToGlobal(Offset.zero));
+    final caretOffsetInTextFieldSpace = caretRect.shift(textOffset);
+
+    widget.textController.setCaretRect(caretOffsetInTextFieldSpace);
   }
 
   @override
