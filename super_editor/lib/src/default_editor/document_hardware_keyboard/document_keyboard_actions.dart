@@ -199,6 +199,17 @@ ExecutionInstruction doNothingWhenThereIsNoSelection({
   }
 }
 
+ExecutionInstruction doNothinOnMac({
+  required SuperEditorContext editContext,
+  required RawKeyEvent keyEvent,
+}) {
+  if (defaultTargetPlatform == TargetPlatform.macOS) {
+    return ExecutionInstruction.blocked;
+  }
+
+  return ExecutionInstruction.continueExecution;
+}
+
 ExecutionInstruction pasteWhenCmdVIsPressed({
   required SuperEditorContext editContext,
   required RawKeyEvent keyEvent,
