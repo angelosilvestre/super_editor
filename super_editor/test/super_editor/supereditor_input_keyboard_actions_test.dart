@@ -221,6 +221,16 @@ void main() {
 
           // Press control + backspace
           await tester.pressCtlBackspace();
+          await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.handlePlatformMessage(
+            SystemChannels.textInput.name,
+            SystemChannels.textInput.codec.encodeMethodCall(
+              const MethodCall('TextInputClient.performSelectors', <dynamic>[
+                -1,
+                [MacOsSelectors.deleteBackwardByDecomposingPreviousCharacter]
+              ]),
+            ),
+            (ByteData? data) {/* response from framework is discarded */},
+          );
 
           // Ensure that a character was deleted.
           final paragraphNode = testContext.findEditContext().document.nodes.first as ParagraphNode;

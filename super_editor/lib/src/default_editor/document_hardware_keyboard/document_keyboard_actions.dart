@@ -210,6 +210,27 @@ ExecutionInstruction doNothinOnMac({
   return ExecutionInstruction.continueExecution;
 }
 
+ExecutionInstruction deleteDownstreamCharacterWithCtrlDeleteOnMac({
+  required SuperEditorContext editContext,
+  required RawKeyEvent keyEvent,
+}) {
+  if (defaultTargetPlatform != TargetPlatform.macOS) {
+    return ExecutionInstruction.continueExecution;
+  }
+
+  if (keyEvent is! RawKeyDownEvent) {
+    return ExecutionInstruction.continueExecution;
+  }
+
+  if (keyEvent.logicalKey != LogicalKeyboardKey.delete || !keyEvent.isControlPressed) {
+    return ExecutionInstruction.continueExecution;
+  }
+
+  final didDelete = editContext.commonOps.deleteDownstream();
+
+  return didDelete ? ExecutionInstruction.haltExecution : ExecutionInstruction.continueExecution;
+}
+
 ExecutionInstruction pasteWhenCmdVIsPressed({
   required SuperEditorContext editContext,
   required RawKeyEvent keyEvent,
