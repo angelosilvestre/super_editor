@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:attributed_text/attributed_text.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:super_editor/src/core/document_layout.dart';
+import 'package:super_editor/src/default_editor/document_ime/document_ime_communication.dart';
 import 'package:super_editor/src/infrastructure/attributed_text_styles.dart';
 import 'package:super_editor/src/super_textfield/super_textfield.dart';
 import 'package:super_text_layout/super_text_layout.dart';
@@ -43,6 +46,7 @@ class ImeAttributedTextEditingController extends AttributedTextEditingController
         _onIOSFloatingCursorChange = onIOSFloatingCursorChange,
         _keyboardAppearance = keyboardAppearance {
     _realController.addListener(_onInnerControllerChange);
+    _onPerformSelectionController = StreamController<String>.broadcast();
   }
 
   @override
@@ -61,6 +65,9 @@ class ImeAttributedTextEditingController extends AttributedTextEditingController
   /// Only used for iOS devices.
   Brightness get keyboardAppearance => _keyboardAppearance;
   Brightness _keyboardAppearance;
+
+  Stream<String> get onPerformSelector => _onPerformSelectionController.stream;
+  late StreamController<String> _onPerformSelectionController;
 
   final AttributedTextEditingController _realController;
 
@@ -383,7 +390,8 @@ class ImeAttributedTextEditingController extends AttributedTextEditingController
 
   @override
   void performSelector(String selectorName) {
-    // TODO: implement this method starting with Flutter 3.3.4
+    editorImeLog.fine("IME says to perform selector: $selectorName");
+    _onPerformSelectionController.sink.add(selectorName);
   }
   //------ End TextInputClient -----
 
@@ -655,3 +663,21 @@ class ImeAttributedTextEditingController extends AttributedTextEditingController
 
 typedef TextInputConnectionFactory = TextInputConnection Function(
     TextInputClient client, TextInputConfiguration configuration);
+
+
+
+// const defaultTextFieldImeKeyboardHandlers = <TextFieldKeyboardHandler>[
+//   DefaultSuperTextFieldKeyboardHandlers.copyTextWhenCmdCIsPressed,
+//   DefaultSuperTextFieldKeyboardHandlers.pasteTextWhenCmdVIsPressed,
+//   DefaultSuperTextFieldKeyboardHandlers.selectAllTextFieldWhenCmdAIsPressed,
+//   DefaultSuperTextFieldKeyboardHandlers.doNothingOnMac,
+//   DefaultSuperTextFieldKeyboardHandlers.moveCaretToStartOrEnd,
+//   DefaultSuperTextFieldKeyboardHandlers.moveUpDownLeftAndRightWithArrowKeys,
+//   DefaultSuperTextFieldKeyboardHandlers.moveToLineStartWithHome,
+//   DefaultSuperTextFieldKeyboardHandlers.moveToLineEndWithEnd,
+//   DefaultSuperTextFieldKeyboardHandlers.deleteWordWhenAltBackSpaceIsPressedOnMac,
+//   DefaultSuperTextFieldKeyboardHandlers.deleteWordWhenCtlBackSpaceIsPressedOnWindowsAndLinux,
+//   DefaultSuperTextFieldKeyboardHandlers.deleteTextOnLineBeforeCaretWhenShortcutKeyAndBackspaceIsPressed,
+//   DefaultSuperTextFieldKeyboardHandlers.deleteTextWhenBackspaceOrDeleteIsPressed,
+//   DefaultSuperTextFieldKeyboardHandlers.insertNewlineWhenEnterIsPressed,
+// ];

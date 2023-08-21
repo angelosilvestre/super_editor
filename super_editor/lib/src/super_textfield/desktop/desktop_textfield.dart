@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'dart:ui' as ui;
 
@@ -7,6 +8,7 @@ import 'package:flutter/material.dart' hide SelectableText;
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:super_editor/src/core/document_layout.dart';
+import 'package:super_editor/src/default_editor/document_ime/document_input_ime.dart';
 import 'package:super_editor/src/infrastructure/_logging.dart';
 import 'package:super_editor/src/infrastructure/attributed_text_styles.dart';
 import 'package:super_editor/src/infrastructure/flutter/flutter_pipeline.dart';
@@ -380,20 +382,27 @@ class SuperDesktopTextFieldState extends State<SuperDesktopTextField> implements
     required bool isMultiline,
     required Widget child,
   }) {
-    return SuperTextFieldKeyboardInteractor(
-      focusNode: _focusNode,
-      textController: _controller,
-      textKey: _textKey,
-      keyboardActions: widget.keyboardHandlers,
-      child: widget.inputSource == TextInputSource.ime
-          ? SuperTextFieldImeInteractor(
-              textKey: _textKey,
-              focusNode: _focusNode,
-              textController: _controller,
-              isMultiline: isMultiline,
-              child: child,
-            )
-          : child,
+    return Actions(
+      actions: defaultTargetPlatform == TargetPlatform.macOS
+          ? {
+              DoNothingAndStopPropagationTextIntent: DoNothingAction(consumesKey: false),
+            }
+          : {},
+      child: SuperTextFieldKeyboardInteractor(
+        focusNode: _focusNode,
+        textController: _controller,
+        textKey: _textKey,
+        keyboardActions: widget.keyboardHandlers,
+        child: widget.inputSource == TextInputSource.ime
+            ? SuperTextFieldImeInteractor(
+                textKey: _textKey,
+                focusNode: _focusNode,
+                textController: _controller,
+                isMultiline: isMultiline,
+                child: child,
+              )
+            : child,
+      ),
     );
   }
 
@@ -998,12 +1007,16 @@ class SuperTextFieldImeInteractor extends StatefulWidget {
 }
 
 class _SuperTextFieldImeInteractorState extends State<SuperTextFieldImeInteractor> {
+  final Map<String, SuperTextFieldSelectorHandler> _selectorHandlers = defaultTextFieldSelectorHandlers;
+  late StreamSubscription<String> _onPerformSelectorSubscription;
+
   @override
   void initState() {
     super.initState();
     widget.focusNode.addListener(_updateSelectionAndImeConnectionOnFocusChange);
 
     widget.textController.inputConnectionNotifier.addListener(_reportVisualInformationToIme);
+    _onPerformSelectorSubscription = widget.textController.onPerformSelector.listen(_onPerformSelector);
 
     if (widget.focusNode.hasFocus) {
       // We got an already focused FocusNode, we need to attach to the IME.
@@ -1023,12 +1036,18 @@ class _SuperTextFieldImeInteractorState extends State<SuperTextFieldImeInteracto
         onNextFrame((_) => _updateSelectionAndImeConnectionOnFocusChange());
       }
     }
+
+    if (widget.textController != oldWidget.textController) {
+      _onPerformSelectorSubscription.cancel();
+      _onPerformSelectorSubscription = widget.textController.onPerformSelector.listen(_onPerformSelector);
+    }
   }
 
   @override
   void dispose() {
     widget.focusNode.removeListener(_updateSelectionAndImeConnectionOnFocusChange);
     widget.textController.inputConnectionNotifier.removeListener(_reportVisualInformationToIme);
+    _onPerformSelectorSubscription.cancel();
     super.dispose();
   }
 
@@ -1110,6 +1129,19 @@ class _SuperTextFieldImeInteractorState extends State<SuperTextFieldImeInteracto
     final caretOffsetInTextFieldSpace = caretRect.shift(textOffset);
 
     return caretOffsetInTextFieldSpace;
+  }
+
+  void _onPerformSelector(String selectorName) {
+    final handler = _selectorHandlers[selectorName];
+    if (handler == null) {
+      editorImeLog.warning("No handler found for $selectorName");
+      return;
+    }
+
+    handler(
+      controller: widget.textController,
+      textLayout: widget.textKey.currentState!.textLayout,
+    );
   }
 
   @override
@@ -1546,6 +1578,8 @@ const defaultTextFieldImeKeyboardHandlers = <TextFieldKeyboardHandler>[
   DefaultSuperTextFieldKeyboardHandlers.copyTextWhenCmdCIsPressed,
   DefaultSuperTextFieldKeyboardHandlers.pasteTextWhenCmdVIsPressed,
   DefaultSuperTextFieldKeyboardHandlers.selectAllTextFieldWhenCmdAIsPressed,
+  DefaultSuperTextFieldKeyboardHandlers.insertNewlineWhenEnterIsPressed,
+  DefaultSuperTextFieldKeyboardHandlers.doNothingOnMac,
   DefaultSuperTextFieldKeyboardHandlers.moveCaretToStartOrEnd,
   DefaultSuperTextFieldKeyboardHandlers.moveUpDownLeftAndRightWithArrowKeys,
   DefaultSuperTextFieldKeyboardHandlers.moveToLineStartWithHome,
@@ -1554,7 +1588,6 @@ const defaultTextFieldImeKeyboardHandlers = <TextFieldKeyboardHandler>[
   DefaultSuperTextFieldKeyboardHandlers.deleteWordWhenCtlBackSpaceIsPressedOnWindowsAndLinux,
   DefaultSuperTextFieldKeyboardHandlers.deleteTextOnLineBeforeCaretWhenShortcutKeyAndBackspaceIsPressed,
   DefaultSuperTextFieldKeyboardHandlers.deleteTextWhenBackspaceOrDeleteIsPressed,
-  DefaultSuperTextFieldKeyboardHandlers.insertNewlineWhenEnterIsPressed,
 ];
 
 class DefaultSuperTextFieldKeyboardHandlers {
@@ -1964,6 +1997,18 @@ class DefaultSuperTextFieldKeyboardHandlers {
     return TextFieldKeyboardHandlerResult.handled;
   }
 
+  static TextFieldKeyboardHandlerResult doNothingOnMac({
+    required AttributedTextEditingController controller,
+    required ProseTextLayout textLayout,
+    required RawKeyEvent keyEvent,
+  }) {
+    if (defaultTargetPlatform == TargetPlatform.macOS) {
+      return TextFieldKeyboardHandlerResult.blocked;
+    }
+
+    return TextFieldKeyboardHandlerResult.notHandled;
+  }
+
   DefaultSuperTextFieldKeyboardHandlers._();
 }
 
@@ -2005,4 +2050,345 @@ class _EstimatedLineHeight {
     _lastTextScaleFactor = textScaler;
     return _lastLineHeight!;
   }
+}
+
+typedef SuperTextFieldSelectorHandler = void Function({
+  required AttributedTextEditingController controller,
+  required ProseTextLayout textLayout,
+});
+
+const defaultTextFieldSelectorHandlers = <String, SuperTextFieldSelectorHandler>{
+  // Movement.
+  MacOsSelectors.moveLeft: _moveCaretUpstream,
+  MacOsSelectors.moveRight: _moveCaretDownstream,
+  MacOsSelectors.moveUp: _moveCaretUp,
+  MacOsSelectors.moveDown: _moveCaretDown,
+  MacOsSelectors.moveForward: _moveCaretDownstream,
+  MacOsSelectors.moveBackward: _moveCaretUpstream,
+  MacOsSelectors.moveWordLeft: _moveWordUpstream,
+  MacOsSelectors.moveWordRight: _moveWordDownstream,
+  MacOsSelectors.moveToLeftEndOfLine: _moveLineBeginning,
+  MacOsSelectors.moveToRightEndOfLine: _moveLineEnd,
+  // MacOsSelectors.moveToBeginningOfParagraph: _moveToBeginningOfParagraph,
+  // MacOsSelectors.moveToEndOfParagraph: _moveToEndOfParagraph,
+  // MacOsSelectors.moveToBeginningOfDocument: _moveToBeginningOfDocument,
+  // MacOsSelectors.moveToEndOfDocument: _moveToEndOfDocument,
+
+  // Selection expanding.
+  MacOsSelectors.moveLeftAndModifySelection: _expandSelectionUpstream,
+  MacOsSelectors.moveRightAndModifySelection: _expandSelectionDownstream,
+  MacOsSelectors.moveUpAndModifySelection: _expandSelectionLineUp,
+  MacOsSelectors.moveDownAndModifySelection: _expandSelectionLineDown,
+  MacOsSelectors.moveWordLeftAndModifySelection: _expandSelectionWordUpstream,
+  MacOsSelectors.moveWordRightAndModifySelection: _expandSelectionWordDownstream,
+  MacOsSelectors.moveToLeftEndOfLineAndModifySelection: _expandSelectionLineUpstream,
+  MacOsSelectors.moveToRightEndOfLineAndModifySelection: _expandSelectionLineDownstream,
+  // MacOsSelectors.moveParagraphBackwardAndModifySelection: _expandSelectionToBeginningOfParagraph,
+  // MacOsSelectors.moveParagraphForwardAndModifySelection: _expandSelectionToEndOfParagraph,
+  // MacOsSelectors.moveToBeginningOfDocumentAndModifySelection: _expandSelectiontToBeginningOfDocument,
+  // MacOsSelectors.moveToEndOfDocumentAndModifySelection: _expandSelectionToEndOfDocument,
+
+  // Deletion.
+  MacOsSelectors.deleteBackward: _deleteUpstream,
+  MacOsSelectors.deleteForward: _deleteDownstream,
+  MacOsSelectors.deleteWordBackward: _deleteWordUpstream,
+  MacOsSelectors.deleteWordForward: _deleteWordDownstream,
+  MacOsSelectors.deleteToBeginningOfLine: _deleteToBeginningOfLine,
+  MacOsSelectors.deleteToEndOfLine: _deleteToEndOfLine,
+  MacOsSelectors.deleteBackwardByDecomposingPreviousCharacter: _deleteUpstream,
+
+  // // Scrolling.
+  // MacOsSelectors.scrollToBeginningOfDocument: _scrollToBeginningOfDocument,
+  // MacOsSelectors.scrollToEndOfDocument: _scrollToEndOfDocument,
+  // MacOsSelectors.scrollPageUp: _scrollToStarOfPage,
+  // MacOsSelectors.scrollPageDown: _scrollToEndOfPage,
+
+  // // Insertion.
+  // MacOsSelectors.insertTab: _indentListItem,
+  // MacOsSelectors.insertBacktab: _unIndentListItem,
+  // MacOsSelectors.insertNewLine: _insertNewLine,
+};
+
+void _moveCaretUpstream({
+  required AttributedTextEditingController controller,
+  required textLayout,
+}) {
+  controller.moveCaretHorizontally(
+    textLayout: textLayout,
+    moveLeft: true,
+    expandSelection: false,
+    movementModifier: null,
+  );
+}
+
+void _moveCaretDownstream({
+  required AttributedTextEditingController controller,
+  required textLayout,
+}) {
+  controller.moveCaretHorizontally(
+    textLayout: textLayout,
+    moveLeft: false,
+    expandSelection: false,
+    movementModifier: null,
+  );
+}
+
+void _moveCaretUp({
+  required AttributedTextEditingController controller,
+  required textLayout,
+}) {
+  controller.moveCaretVertically(
+    textLayout: textLayout,
+    moveUp: true,
+    expandSelection: false,
+  );
+}
+
+void _moveCaretDown({
+  required AttributedTextEditingController controller,
+  required textLayout,
+}) {
+  controller.moveCaretVertically(
+    textLayout: textLayout,
+    moveUp: false,
+    expandSelection: false,
+  );
+}
+
+void _moveWordUpstream({
+  required AttributedTextEditingController controller,
+  required textLayout,
+}) {
+  controller.moveCaretHorizontally(
+    textLayout: textLayout,
+    moveLeft: true,
+    expandSelection: false,
+    movementModifier: MovementModifier.word,
+  );
+}
+
+void _moveWordDownstream({
+  required AttributedTextEditingController controller,
+  required textLayout,
+}) {
+  controller.moveCaretHorizontally(
+    textLayout: textLayout,
+    moveLeft: false,
+    expandSelection: false,
+    movementModifier: MovementModifier.word,
+  );
+}
+
+void _moveLineBeginning({
+  required AttributedTextEditingController controller,
+  required textLayout,
+}) {
+  controller.moveCaretHorizontally(
+    textLayout: textLayout,
+    moveLeft: true,
+    expandSelection: false,
+    movementModifier: MovementModifier.line,
+  );
+}
+
+void _moveLineEnd({
+  required AttributedTextEditingController controller,
+  required textLayout,
+}) {
+  controller.moveCaretHorizontally(
+    textLayout: textLayout,
+    moveLeft: false,
+    expandSelection: false,
+    movementModifier: MovementModifier.line,
+  );
+}
+
+void _expandSelectionUpstream({
+  required AttributedTextEditingController controller,
+  required textLayout,
+}) {
+  controller.moveCaretHorizontally(
+    textLayout: textLayout,
+    moveLeft: true,
+    expandSelection: true,
+    movementModifier: null,
+  );
+}
+
+void _expandSelectionDownstream({
+  required AttributedTextEditingController controller,
+  required textLayout,
+}) {
+  controller.moveCaretHorizontally(
+    textLayout: textLayout,
+    moveLeft: false,
+    expandSelection: true,
+    movementModifier: null,
+  );
+}
+
+void _expandSelectionLineUp({
+  required AttributedTextEditingController controller,
+  required textLayout,
+}) {
+  controller.moveCaretVertically(
+    textLayout: textLayout,
+    moveUp: true,
+    expandSelection: true,
+  );
+}
+
+void _expandSelectionLineDown({
+  required AttributedTextEditingController controller,
+  required textLayout,
+}) {
+  controller.moveCaretVertically(
+    textLayout: textLayout,
+    moveUp: false,
+    expandSelection: true,
+  );
+}
+
+void _expandSelectionWordUpstream({
+  required AttributedTextEditingController controller,
+  required textLayout,
+}) {
+  controller.moveCaretHorizontally(
+    textLayout: textLayout,
+    moveLeft: true,
+    expandSelection: true,
+    movementModifier: MovementModifier.word,
+  );
+}
+
+void _expandSelectionWordDownstream({
+  required AttributedTextEditingController controller,
+  required textLayout,
+}) {
+  controller.moveCaretHorizontally(
+    textLayout: textLayout,
+    moveLeft: false,
+    expandSelection: true,
+    movementModifier: MovementModifier.word,
+  );
+}
+
+void _expandSelectionLineUpstream({
+  required AttributedTextEditingController controller,
+  required textLayout,
+}) {
+  controller.moveCaretHorizontally(
+    textLayout: textLayout,
+    moveLeft: true,
+    expandSelection: true,
+    movementModifier: MovementModifier.line,
+  );
+}
+
+void _expandSelectionLineDownstream({
+  required AttributedTextEditingController controller,
+  required textLayout,
+}) {
+  controller.moveCaretHorizontally(
+    textLayout: textLayout,
+    moveLeft: false,
+    expandSelection: true,
+    movementModifier: MovementModifier.line,
+  );
+}
+
+void _deleteUpstream({
+  required AttributedTextEditingController controller,
+  required textLayout,
+}) {
+  if (controller.selection.isCollapsed) {
+    controller.deleteCharacter(TextAffinity.upstream);
+  } else {
+    controller.deleteSelectedText();
+  }
+}
+
+void _deleteDownstream({
+  required AttributedTextEditingController controller,
+  required textLayout,
+}) {
+  if (controller.selection.isCollapsed) {
+    controller.deleteCharacter(TextAffinity.downstream);
+  } else {
+    controller.deleteSelectedText();
+  }
+}
+
+void _deleteWordUpstream({
+  required AttributedTextEditingController controller,
+  required textLayout,
+}) {
+  if (!controller.selection.isCollapsed) {
+    controller.deleteSelectedText();
+    return;
+  }
+
+  controller.moveCaretHorizontally(
+    textLayout: textLayout,
+    expandSelection: true,
+    moveLeft: true,
+    movementModifier: MovementModifier.word,
+  );
+  controller.deleteSelectedText();
+}
+
+void _deleteWordDownstream({
+  required AttributedTextEditingController controller,
+  required textLayout,
+}) {
+  if (!controller.selection.isCollapsed) {
+    controller.deleteSelectedText();
+    return;
+  }
+
+  controller.moveCaretHorizontally(
+    textLayout: textLayout,
+    expandSelection: true,
+    moveLeft: false,
+    movementModifier: MovementModifier.word,
+  );
+
+  controller.deleteSelectedText();
+}
+
+void _deleteToBeginningOfLine({
+  required AttributedTextEditingController controller,
+  required textLayout,
+}) {
+  if (!controller.selection.isCollapsed) {
+    controller.deleteSelection();
+    return;
+  }
+
+  if (textLayout.getPositionAtStartOfLine(controller.selection.extent).offset == controller.selection.extentOffset) {
+    // The caret is sitting at the beginning of a line. There's nothing for us to
+    // delete upstream on this line. But we also don't want a regular BACKSPACE to
+    // run, either. Report this key combination as handled.
+    return;
+  }
+
+  controller.deleteTextOnLineBeforeCaret(textLayout: textLayout);
+}
+
+void _deleteToEndOfLine({
+  required AttributedTextEditingController controller,
+  required textLayout,
+}) {
+  if (!controller.selection.isCollapsed) {
+    controller.deleteSelection();
+    return;
+  }
+
+  if (textLayout.getPositionAtEndOfLine(controller.selection.extent).offset == controller.selection.extentOffset) {
+    // The caret is sitting at the end of a line. There's nothing for us to
+    // delete downstream on this line.
+    return;
+  }
+
+  controller.deleteTextOnLineAfterCaret(textLayout: textLayout);
 }
