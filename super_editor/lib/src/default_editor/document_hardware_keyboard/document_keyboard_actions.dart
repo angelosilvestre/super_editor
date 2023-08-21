@@ -204,6 +204,12 @@ ExecutionInstruction doNothinOnMac({
   required RawKeyEvent keyEvent,
 }) {
   if (defaultTargetPlatform == TargetPlatform.macOS) {
+    // On macOS, we let the IME handle all key events. Then, the IME might generate
+    // selectors which express the user intent, e.g, moveLeftAndModifySelection:.
+    //
+    // For the full list of selectors handled by SuperEditor, see the MacOsSelectors class.
+    //
+    // This is needed for the interaction with the accent panel to work.
     return ExecutionInstruction.blocked;
   }
 
