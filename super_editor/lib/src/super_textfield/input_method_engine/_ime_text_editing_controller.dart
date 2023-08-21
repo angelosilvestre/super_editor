@@ -45,7 +45,7 @@ class ImeAttributedTextEditingController extends AttributedTextEditingController
         _onIOSFloatingCursorChange = onIOSFloatingCursorChange,
         _keyboardAppearance = keyboardAppearance {
     _realController.addListener(_onInnerControllerChange);
-    _onPerformSelectionController = StreamController<String>.broadcast();
+    _onPerformSelectorController = StreamController<String>.broadcast();
   }
 
   @override
@@ -65,8 +65,9 @@ class ImeAttributedTextEditingController extends AttributedTextEditingController
   Brightness get keyboardAppearance => _keyboardAppearance;
   Brightness _keyboardAppearance;
 
-  Stream<String> get onPerformSelector => _onPerformSelectionController.stream;
-  late StreamController<String> _onPerformSelectionController;
+  /// A stream of `performSelector` calls.
+  Stream<String> get onPerformSelector => _onPerformSelectorController.stream;
+  late StreamController<String> _onPerformSelectorController;
 
   final AttributedTextEditingController _realController;
 
@@ -390,7 +391,7 @@ class ImeAttributedTextEditingController extends AttributedTextEditingController
   @override
   void performSelector(String selectorName) {
     editorImeLog.fine("IME says to perform selector: $selectorName");
-    _onPerformSelectionController.sink.add(selectorName);
+    _onPerformSelectorController.sink.add(selectorName);
   }
   //------ End TextInputClient -----
 
@@ -662,21 +663,3 @@ class ImeAttributedTextEditingController extends AttributedTextEditingController
 
 typedef TextInputConnectionFactory = TextInputConnection Function(
     TextInputClient client, TextInputConfiguration configuration);
-
-
-
-// const defaultTextFieldImeKeyboardHandlers = <TextFieldKeyboardHandler>[
-//   DefaultSuperTextFieldKeyboardHandlers.copyTextWhenCmdCIsPressed,
-//   DefaultSuperTextFieldKeyboardHandlers.pasteTextWhenCmdVIsPressed,
-//   DefaultSuperTextFieldKeyboardHandlers.selectAllTextFieldWhenCmdAIsPressed,
-//   DefaultSuperTextFieldKeyboardHandlers.doNothingOnMac,
-//   DefaultSuperTextFieldKeyboardHandlers.moveCaretToStartOrEnd,
-//   DefaultSuperTextFieldKeyboardHandlers.moveUpDownLeftAndRightWithArrowKeys,
-//   DefaultSuperTextFieldKeyboardHandlers.moveToLineStartWithHome,
-//   DefaultSuperTextFieldKeyboardHandlers.moveToLineEndWithEnd,
-//   DefaultSuperTextFieldKeyboardHandlers.deleteWordWhenAltBackSpaceIsPressedOnMac,
-//   DefaultSuperTextFieldKeyboardHandlers.deleteWordWhenCtlBackSpaceIsPressedOnWindowsAndLinux,
-//   DefaultSuperTextFieldKeyboardHandlers.deleteTextOnLineBeforeCaretWhenShortcutKeyAndBackspaceIsPressed,
-//   DefaultSuperTextFieldKeyboardHandlers.deleteTextWhenBackspaceOrDeleteIsPressed,
-//   DefaultSuperTextFieldKeyboardHandlers.insertNewlineWhenEnterIsPressed,
-// ];

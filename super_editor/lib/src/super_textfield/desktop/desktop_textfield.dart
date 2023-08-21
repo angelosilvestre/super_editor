@@ -385,6 +385,7 @@ class SuperDesktopTextFieldState extends State<SuperDesktopTextField> implements
     return Actions(
       actions: defaultTargetPlatform == TargetPlatform.macOS
           ? {
+              // Prevents the framework from using the arrow keys to move focus.
               DoNothingAndStopPropagationTextIntent: DoNothingAction(consumesKey: false),
             }
           : {},
@@ -1007,7 +1008,12 @@ class SuperTextFieldImeInteractor extends StatefulWidget {
 }
 
 class _SuperTextFieldImeInteractorState extends State<SuperTextFieldImeInteractor> {
+  /// Map selector names to its handlers.
+  ///
+  /// Used on macOS to handle the `performSelector` call.
   final Map<String, SuperTextFieldSelectorHandler> _selectorHandlers = defaultTextFieldSelectorHandlers;
+
+  /// Listen for `performSelector` calls.
   late StreamSubscription<String> _onPerformSelectorSubscription;
 
   @override
@@ -2058,7 +2064,7 @@ typedef SuperTextFieldSelectorHandler = void Function({
 });
 
 const defaultTextFieldSelectorHandlers = <String, SuperTextFieldSelectorHandler>{
-  // Movement.
+  // Caret movement.
   MacOsSelectors.moveLeft: _moveCaretUpstream,
   MacOsSelectors.moveRight: _moveCaretDownstream,
   MacOsSelectors.moveUp: _moveCaretUp,
@@ -2069,10 +2075,6 @@ const defaultTextFieldSelectorHandlers = <String, SuperTextFieldSelectorHandler>
   MacOsSelectors.moveWordRight: _moveWordDownstream,
   MacOsSelectors.moveToLeftEndOfLine: _moveLineBeginning,
   MacOsSelectors.moveToRightEndOfLine: _moveLineEnd,
-  // MacOsSelectors.moveToBeginningOfParagraph: _moveToBeginningOfParagraph,
-  // MacOsSelectors.moveToEndOfParagraph: _moveToEndOfParagraph,
-  // MacOsSelectors.moveToBeginningOfDocument: _moveToBeginningOfDocument,
-  // MacOsSelectors.moveToEndOfDocument: _moveToEndOfDocument,
 
   // Selection expanding.
   MacOsSelectors.moveLeftAndModifySelection: _expandSelectionUpstream,
@@ -2083,10 +2085,6 @@ const defaultTextFieldSelectorHandlers = <String, SuperTextFieldSelectorHandler>
   MacOsSelectors.moveWordRightAndModifySelection: _expandSelectionWordDownstream,
   MacOsSelectors.moveToLeftEndOfLineAndModifySelection: _expandSelectionLineUpstream,
   MacOsSelectors.moveToRightEndOfLineAndModifySelection: _expandSelectionLineDownstream,
-  // MacOsSelectors.moveParagraphBackwardAndModifySelection: _expandSelectionToBeginningOfParagraph,
-  // MacOsSelectors.moveParagraphForwardAndModifySelection: _expandSelectionToEndOfParagraph,
-  // MacOsSelectors.moveToBeginningOfDocumentAndModifySelection: _expandSelectiontToBeginningOfDocument,
-  // MacOsSelectors.moveToEndOfDocumentAndModifySelection: _expandSelectionToEndOfDocument,
 
   // Deletion.
   MacOsSelectors.deleteBackward: _deleteUpstream,
@@ -2096,17 +2094,6 @@ const defaultTextFieldSelectorHandlers = <String, SuperTextFieldSelectorHandler>
   MacOsSelectors.deleteToBeginningOfLine: _deleteToBeginningOfLine,
   MacOsSelectors.deleteToEndOfLine: _deleteToEndOfLine,
   MacOsSelectors.deleteBackwardByDecomposingPreviousCharacter: _deleteUpstream,
-
-  // // Scrolling.
-  // MacOsSelectors.scrollToBeginningOfDocument: _scrollToBeginningOfDocument,
-  // MacOsSelectors.scrollToEndOfDocument: _scrollToEndOfDocument,
-  // MacOsSelectors.scrollPageUp: _scrollToStarOfPage,
-  // MacOsSelectors.scrollPageDown: _scrollToEndOfPage,
-
-  // // Insertion.
-  // MacOsSelectors.insertTab: _indentListItem,
-  // MacOsSelectors.insertBacktab: _unIndentListItem,
-  // MacOsSelectors.insertNewLine: _insertNewLine,
 };
 
 void _moveCaretUpstream({

@@ -308,7 +308,7 @@ class DocumentImeInputClient extends TextInputConnectionDecorator with TextInput
 }
 
 const defaultEditorSelectorHandlers = <String, SuperEditorSelectorHandler>{
-  // Movement.
+  // Caret movement.
   MacOsSelectors.moveLeft: _moveCaretUpstream,
   MacOsSelectors.moveRight: _moveCaretDownstream,
   MacOsSelectors.moveUp: _moveCaretUp,
@@ -338,6 +338,11 @@ const defaultEditorSelectorHandlers = <String, SuperEditorSelectorHandler>{
   MacOsSelectors.moveToBeginningOfDocumentAndModifySelection: _expandSelectiontToBeginningOfDocument,
   MacOsSelectors.moveToEndOfDocumentAndModifySelection: _expandSelectionToEndOfDocument,
 
+  // Insertion.
+  MacOsSelectors.insertTab: _indentListItem,
+  MacOsSelectors.insertBacktab: _unIndentListItem,
+  MacOsSelectors.insertNewLine: _insertNewLine,
+
   // Deletion.
   MacOsSelectors.deleteBackward: _deleteUpstream,
   MacOsSelectors.deleteForward: _deleteDownstream,
@@ -352,12 +357,39 @@ const defaultEditorSelectorHandlers = <String, SuperEditorSelectorHandler>{
   MacOsSelectors.scrollToEndOfDocument: _scrollToEndOfDocument,
   MacOsSelectors.scrollPageUp: _scrollToStarOfPage,
   MacOsSelectors.scrollPageDown: _scrollToEndOfPage,
-
-  // Insertion.
-  MacOsSelectors.insertTab: _indentListItem,
-  MacOsSelectors.insertBacktab: _unIndentListItem,
-  MacOsSelectors.insertNewLine: _insertNewLine,
 };
+
+void _moveCaretUpstream(SuperEditorContext context) {
+  context.commonOps.moveCaretUpstream();
+}
+
+void _moveCaretDownstream(SuperEditorContext context) {
+  context.commonOps.moveCaretDownstream();
+}
+
+void _moveCaretUp(SuperEditorContext context) {
+  context.commonOps.moveCaretUp();
+}
+
+void _moveCaretDown(SuperEditorContext context) {
+  context.commonOps.moveCaretDown();
+}
+
+void _moveWordUpstream(SuperEditorContext context) {
+  context.commonOps.moveCaretUpstream(movementModifier: MovementModifier.word);
+}
+
+void _moveWordDownstream(SuperEditorContext context) {
+  context.commonOps.moveCaretDownstream(movementModifier: MovementModifier.word);
+}
+
+void _moveToLineBeginning(SuperEditorContext context) {
+  context.commonOps.moveCaretUpstream(movementModifier: MovementModifier.line);
+}
+
+void _moveToLineEnd(SuperEditorContext context) {
+  context.commonOps.moveCaretDownstream(movementModifier: MovementModifier.line);
+}
 
 void _moveToBeginningOfParagraph(SuperEditorContext context) {
   final composer = context.composer;
@@ -469,58 +501,12 @@ void _moveToEndOfDocument(SuperEditorContext context) {
   ]);
 }
 
-void _deleteUpstream(SuperEditorContext context) {
-  if (isWeb) {
-    return;
-  }
-  context.commonOps.deleteUpstream();
-}
-
-void _deleteDownstream(SuperEditorContext context) {
-  if (isWeb) {
-    return;
-  }
-  context.commonOps.deleteDownstream();
-}
-
-void _moveCaretUpstream(SuperEditorContext context) {
-  context.commonOps.moveCaretUpstream();
-}
-
 void _expandSelectionUpstream(SuperEditorContext context) {
   context.commonOps.moveCaretUpstream(expand: true);
 }
 
 void _expandSelectionDownstream(SuperEditorContext context) {
   context.commonOps.moveCaretDownstream(expand: true);
-}
-
-void _moveCaretDownstream(SuperEditorContext context) {
-  context.commonOps.moveCaretDownstream();
-}
-
-void _moveCaretUp(SuperEditorContext context) {
-  context.commonOps.moveCaretUp();
-}
-
-void _moveCaretDown(SuperEditorContext context) {
-  context.commonOps.moveCaretDown();
-}
-
-void _moveWordUpstream(SuperEditorContext context) {
-  context.commonOps.moveCaretUpstream(movementModifier: MovementModifier.word);
-}
-
-void _moveWordDownstream(SuperEditorContext context) {
-  context.commonOps.moveCaretDownstream(movementModifier: MovementModifier.word);
-}
-
-void _moveToLineBeginning(SuperEditorContext context) {
-  context.commonOps.moveCaretUpstream(movementModifier: MovementModifier.line);
-}
-
-void _moveToLineEnd(SuperEditorContext context) {
-  context.commonOps.moveCaretDownstream(movementModifier: MovementModifier.line);
 }
 
 void _expandSelectionLineUp(SuperEditorContext context) {
@@ -673,6 +659,21 @@ void _expandSelectionLineDownstream(SuperEditorContext context) {
   );
 }
 
+void _indentListItem(SuperEditorContext context) {
+  context.commonOps.indentListItem();
+}
+
+void _unIndentListItem(SuperEditorContext context) {
+  context.commonOps.unindentListItem();
+}
+
+void _insertNewLine(SuperEditorContext context) {
+  if (isWeb) {
+    return;
+  }
+  context.commonOps.insertBlockLevelNewline();
+}
+
 void _deleteWordUpstream(SuperEditorContext context) {
   bool didMove = false;
 
@@ -725,6 +726,20 @@ void _deleteToEndOfLine(SuperEditorContext context) {
   }
 }
 
+void _deleteUpstream(SuperEditorContext context) {
+  if (isWeb) {
+    return;
+  }
+  context.commonOps.deleteUpstream();
+}
+
+void _deleteDownstream(SuperEditorContext context) {
+  if (isWeb) {
+    return;
+  }
+  context.commonOps.deleteDownstream();
+}
+
 void _scrollToBeginningOfDocument(SuperEditorContext context) {
   context.scroller.animateTo(
     context.scroller.minScrollExtent,
@@ -755,21 +770,6 @@ void _scrollToEndOfPage(SuperEditorContext context) {
     duration: const Duration(milliseconds: 150),
     curve: Curves.decelerate,
   );
-}
-
-void _indentListItem(SuperEditorContext context) {
-  context.commonOps.indentListItem();
-}
-
-void _unIndentListItem(SuperEditorContext context) {
-  context.commonOps.unindentListItem();
-}
-
-void _insertNewLine(SuperEditorContext context) {
-  if (isWeb) {
-    return;
-  }
-  context.commonOps.insertBlockLevelNewline();
 }
 
 /// A callback to handle a `performSelector` call.
