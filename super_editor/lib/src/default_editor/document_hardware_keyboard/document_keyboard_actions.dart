@@ -203,7 +203,7 @@ ExecutionInstruction doNothinOnMac({
   required SuperEditorContext editContext,
   required RawKeyEvent keyEvent,
 }) {
-  if (defaultTargetPlatform == TargetPlatform.macOS) {
+  if (defaultTargetPlatform == TargetPlatform.macOS && !isWeb) {
     // On macOS, we let the IME handle all key events. Then, the IME might generate
     // selectors which express the user intent, e.g, moveLeftAndModifySelection:.
     //

@@ -1022,6 +1022,7 @@ class _SuperTextFieldImeInteractorState extends State<SuperTextFieldImeInteracto
     widget.focusNode.addListener(_updateSelectionAndImeConnectionOnFocusChange);
 
     widget.textController.inputConnectionNotifier.addListener(_reportVisualInformationToIme);
+    widget.textController.onPerformActionPressed ??= _onPerformActionPressed;
     _onPerformSelectorSubscription = widget.textController.onPerformSelector.listen(_onPerformSelector);
 
     if (widget.focusNode.hasFocus) {
@@ -1046,6 +1047,12 @@ class _SuperTextFieldImeInteractorState extends State<SuperTextFieldImeInteracto
     if (widget.textController != oldWidget.textController) {
       _onPerformSelectorSubscription.cancel();
       _onPerformSelectorSubscription = widget.textController.onPerformSelector.listen(_onPerformSelector);
+
+      if (oldWidget.textController.onPerformActionPressed == _onPerformActionPressed) {
+        oldWidget.textController.onPerformActionPressed = null;
+      }
+
+      widget.textController.onPerformActionPressed ??= _onPerformActionPressed;
     }
   }
 
@@ -1068,6 +1075,7 @@ class _SuperTextFieldImeInteractorState extends State<SuperTextFieldImeInteracto
 
           widget.textController.attachToIme(
             textInputType: widget.isMultiline ? TextInputType.multiline : TextInputType.text,
+            textInputAction: widget.isMultiline ? TextInputAction.newline : TextInputAction.done,
           );
         });
       }
@@ -1148,6 +1156,17 @@ class _SuperTextFieldImeInteractorState extends State<SuperTextFieldImeInteracto
       controller: widget.textController,
       textLayout: widget.textKey.currentState!.textLayout,
     );
+  }
+
+  /// Handles actions from the IME
+  void _onPerformActionPressed(TextInputAction action) {
+    switch (action) {
+      case TextInputAction.newline:
+        widget.textController.insertNewline();
+        break;
+      default:
+        _log.warning("User pressed unhandled action button: $action");
+    }
   }
 
   @override
@@ -1584,8 +1603,8 @@ const defaultTextFieldImeKeyboardHandlers = <TextFieldKeyboardHandler>[
   DefaultSuperTextFieldKeyboardHandlers.copyTextWhenCmdCIsPressed,
   DefaultSuperTextFieldKeyboardHandlers.pasteTextWhenCmdVIsPressed,
   DefaultSuperTextFieldKeyboardHandlers.selectAllTextFieldWhenCmdAIsPressed,
-  DefaultSuperTextFieldKeyboardHandlers.insertNewlineWhenEnterIsPressed,
   DefaultSuperTextFieldKeyboardHandlers.doNothingOnMac,
+  DefaultSuperTextFieldKeyboardHandlers.insertNewlineWhenEnterIsPressed,
   DefaultSuperTextFieldKeyboardHandlers.moveCaretToStartOrEnd,
   DefaultSuperTextFieldKeyboardHandlers.moveUpDownLeftAndRightWithArrowKeys,
   DefaultSuperTextFieldKeyboardHandlers.moveToLineStartWithHome,
@@ -2008,7 +2027,13 @@ class DefaultSuperTextFieldKeyboardHandlers {
     required ProseTextLayout textLayout,
     required RawKeyEvent keyEvent,
   }) {
-    if (defaultTargetPlatform == TargetPlatform.macOS) {
+    if (defaultTargetPlatform == TargetPlatform.macOS && !isWeb) {
+      // On macOS, we let the IME handle all key events. Then, the IME might generate
+      // selectors which express the user intent, e.g, moveLeftAndModifySelection:.
+      //
+      // For the full list of selectors handled by SuperEditor, see the MacOsSelectors class.
+      //
+      // This is needed for the interaction with the accent panel to work.
       return TextFieldKeyboardHandlerResult.blocked;
     }
 

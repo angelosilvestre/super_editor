@@ -296,6 +296,7 @@ class SuperEditorImeInteractorState extends State<SuperEditorImeInteractor> impl
       child: Actions(
         actions: defaultTargetPlatform == TargetPlatform.macOS
             ? {
+                // Prevents the framework from using the arrow keys to move focus.
                 DoNothingAndStopPropagationTextIntent: DoNothingAction(consumesKey: false),
               }
             : {},

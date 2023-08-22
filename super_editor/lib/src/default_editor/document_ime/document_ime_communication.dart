@@ -562,7 +562,7 @@ void _expandSelectionToBeginningOfParagraph(SuperEditorContext context) {
           nodePosition: node.beginningPosition,
         ),
       ),
-      SelectionChangeType.collapseSelection,
+      SelectionChangeType.expandSelection,
       SelectionReason.userInteraction,
     ),
   ]);
@@ -592,7 +592,7 @@ void _expandSelectionToEndOfParagraph(SuperEditorContext context) {
           nodePosition: node.endPosition,
         ),
       ),
-      SelectionChangeType.collapseSelection,
+      SelectionChangeType.expandSelection,
       SelectionReason.userInteraction,
     ),
   ]);

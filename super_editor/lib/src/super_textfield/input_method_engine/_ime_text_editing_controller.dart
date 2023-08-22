@@ -338,6 +338,7 @@ class ImeAttributedTextEditingController extends AttributedTextEditingController
           from: delta.replacedRange.start,
           to: delta.replacedRange.end,
           newSelection: delta.selection,
+          newComposingRegion: delta.composing,
         );
       } else if (delta is TextEditingDeltaNonTextUpdate) {
         _log.fine('Processing selection/composing change: $delta');
