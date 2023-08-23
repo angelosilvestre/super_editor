@@ -515,9 +515,27 @@ ExecutionInstruction moveUpAndDownWithArrowKeys({
 
   bool didMove = false;
   if (keyEvent.logicalKey == LogicalKeyboardKey.arrowUp) {
-    didMove = editContext.commonOps.moveCaretUp(expand: keyEvent.isShiftPressed);
+    if (defaultTargetPlatform == TargetPlatform.macOS && keyEvent.isAltPressed) {
+      didMove = editContext.commonOps.moveCaretUpstream(
+        expand: keyEvent.isShiftPressed,
+        movementModifier: MovementModifier.paragraph,
+      );
+    } else if (defaultTargetPlatform == TargetPlatform.macOS && keyEvent.isMetaPressed) {
+      didMove = editContext.commonOps.moveSelectionToBeginningOfDocument(expand: keyEvent.isShiftPressed);
+    } else {
+      didMove = editContext.commonOps.moveCaretUp(expand: keyEvent.isShiftPressed);
+    }
   } else {
-    didMove = editContext.commonOps.moveCaretDown(expand: keyEvent.isShiftPressed);
+    if (defaultTargetPlatform == TargetPlatform.macOS && keyEvent.isAltPressed) {
+      didMove = editContext.commonOps.moveCaretDownstream(
+        expand: keyEvent.isShiftPressed,
+        movementModifier: MovementModifier.paragraph,
+      );
+    } else if (defaultTargetPlatform == TargetPlatform.macOS && keyEvent.isMetaPressed) {
+      didMove = editContext.commonOps.moveSelectionToEndOfDocument(expand: keyEvent.isShiftPressed);
+    } else {
+      didMove = editContext.commonOps.moveCaretDown(expand: keyEvent.isShiftPressed);
+    }
   }
 
   return didMove ? ExecutionInstruction.haltExecution : ExecutionInstruction.continueExecution;

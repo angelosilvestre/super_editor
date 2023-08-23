@@ -392,113 +392,19 @@ void _moveToLineEnd(SuperEditorContext context) {
 }
 
 void _moveToBeginningOfParagraph(SuperEditorContext context) {
-  final composer = context.composer;
-  if (composer.selection == null) {
-    return;
-  }
-
-  final node = context.document.getNodeById(composer.selection!.extent.nodeId);
-  if (node == null) {
-    return;
-  }
-
-  if (node is! TextNode) {
-    return;
-  }
-
-  context.editor.execute([
-    ChangeSelectionRequest(
-      DocumentSelection.collapsed(
-        position: DocumentPosition(
-          nodeId: node.id,
-          nodePosition: node.beginningPosition,
-        ),
-      ),
-      SelectionChangeType.placeCaret,
-      SelectionReason.userInteraction,
-    ),
-  ]);
+  context.commonOps.moveCaretUpstream(movementModifier: MovementModifier.paragraph);
 }
 
 void _moveToEndOfParagraph(SuperEditorContext context) {
-  final composer = context.composer;
-  if (composer.selection == null) {
-    return;
-  }
-
-  final node = context.document.getNodeById(composer.selection!.extent.nodeId);
-  if (node == null) {
-    return;
-  }
-
-  if (node is! TextNode) {
-    return;
-  }
-
-  context.editor.execute([
-    ChangeSelectionRequest(
-      DocumentSelection.collapsed(
-        position: DocumentPosition(
-          nodeId: node.id,
-          nodePosition: node.endPosition,
-        ),
-      ),
-      SelectionChangeType.placeCaret,
-      SelectionReason.userInteraction,
-    ),
-  ]);
+  context.commonOps.moveCaretDownstream(movementModifier: MovementModifier.paragraph);
 }
 
 void _moveToBeginningOfDocument(SuperEditorContext context) {
-  final composer = context.composer;
-  if (composer.selection == null) {
-    return;
-  }
-
-  if (context.document.nodes.isEmpty) {
-    return;
-  }
-
-  final node = context.document.nodes.first;
-
-  context.editor.execute([
-    ChangeSelectionRequest(
-      DocumentSelection.collapsed(
-        position: DocumentPosition(
-          nodeId: node.id,
-          nodePosition: node.beginningPosition,
-        ),
-      ),
-      SelectionChangeType.placeCaret,
-      SelectionReason.userInteraction,
-    ),
-  ]);
+  context.commonOps.moveSelectionToBeginningOfDocument(expand: false);
 }
 
 void _moveToEndOfDocument(SuperEditorContext context) {
-  final composer = context.composer;
-  if (composer.selection == null) {
-    return;
-  }
-
-  if (context.document.nodes.isEmpty) {
-    return;
-  }
-
-  final node = context.document.nodes.last;
-
-  context.editor.execute([
-    ChangeSelectionRequest(
-      DocumentSelection.collapsed(
-        position: DocumentPosition(
-          nodeId: node.id,
-          nodePosition: node.endPosition,
-        ),
-      ),
-      SelectionChangeType.placeCaret,
-      SelectionReason.userInteraction,
-    ),
-  ]);
+  context.commonOps.moveSelectionToEndOfDocument(expand: false);
 }
 
 void _expandSelectionUpstream(SuperEditorContext context) {
@@ -539,117 +445,25 @@ void _expandSelectionLineUpstream(SuperEditorContext context) {
 }
 
 void _expandSelectionToBeginningOfParagraph(SuperEditorContext context) {
-  final composer = context.composer;
-  if (composer.selection == null) {
-    return;
-  }
-
-  final node = context.document.getNodeById(composer.selection!.extent.nodeId);
-  if (node == null) {
-    return;
-  }
-
-  if (node is! TextNode) {
-    return;
-  }
-
-  context.editor.execute([
-    ChangeSelectionRequest(
-      DocumentSelection(
-        base: composer.selection!.base,
-        extent: DocumentPosition(
-          nodeId: node.id,
-          nodePosition: node.beginningPosition,
-        ),
-      ),
-      SelectionChangeType.expandSelection,
-      SelectionReason.userInteraction,
-    ),
-  ]);
+  context.commonOps.moveCaretUpstream(
+    expand: true,
+    movementModifier: MovementModifier.paragraph,
+  );
 }
 
 void _expandSelectionToEndOfParagraph(SuperEditorContext context) {
-  final composer = context.composer;
-  if (composer.selection == null) {
-    return;
-  }
-
-  final node = context.document.getNodeById(composer.selection!.extent.nodeId);
-  if (node == null) {
-    return;
-  }
-
-  if (node is! TextNode) {
-    return;
-  }
-
-  context.editor.execute([
-    ChangeSelectionRequest(
-      DocumentSelection(
-        base: composer.selection!.base,
-        extent: DocumentPosition(
-          nodeId: node.id,
-          nodePosition: node.endPosition,
-        ),
-      ),
-      SelectionChangeType.expandSelection,
-      SelectionReason.userInteraction,
-    ),
-  ]);
+  context.commonOps.moveCaretDownstream(
+    expand: true,
+    movementModifier: MovementModifier.paragraph,
+  );
 }
 
 void _expandSelectiontToBeginningOfDocument(SuperEditorContext context) {
-  final composer = context.composer;
-  if (composer.selection == null) {
-    return;
-  }
-
-  if (context.document.nodes.isEmpty) {
-    return;
-  }
-
-  final node = context.document.nodes.first;
-
-  context.editor.execute([
-    ChangeSelectionRequest(
-      DocumentSelection(
-        base: composer.selection!.base,
-        extent: DocumentPosition(
-          nodeId: node.id,
-          nodePosition: node.beginningPosition,
-        ),
-      ),
-      SelectionChangeType.expandSelection,
-      SelectionReason.userInteraction,
-    ),
-  ]);
+  context.commonOps.moveSelectionToBeginningOfDocument(expand: true);
 }
 
 void _expandSelectionToEndOfDocument(SuperEditorContext context) {
-  final composer = context.composer;
-  if (composer.selection == null) {
-    return;
-  }
-
-  if (context.document.nodes.isEmpty) {
-    return;
-  }
-
-  final node = context.document.nodes.last;
-
-  context.editor.execute([
-    ChangeSelectionRequest(
-      DocumentSelection(
-        base: composer.selection!.base,
-        extent: DocumentPosition(
-          nodeId: node.id,
-          nodePosition: node.endPosition,
-        ),
-      ),
-      SelectionChangeType.expandSelection,
-      SelectionReason.userInteraction,
-    ),
-  ]);
+  context.commonOps.moveSelectionToEndOfDocument(expand: true);
 }
 
 void _expandSelectionLineDownstream(SuperEditorContext context) {
