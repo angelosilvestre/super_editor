@@ -2083,6 +2083,7 @@ class _EstimatedLineHeight {
   }
 }
 
+/// A callback to handle a `performSelector` call.
 typedef SuperTextFieldSelectorHandler = void Function({
   required AttributedTextEditingController controller,
   required ProseTextLayout textLayout,

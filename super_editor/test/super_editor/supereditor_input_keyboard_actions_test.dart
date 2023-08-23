@@ -426,18 +426,6 @@ void main() {
 
           // Press control + backspace
           await tester.pressCtlBackspace();
-          // Simulate the OS generating a performSelector call.
-          // TODO: remove after https://github.com/flutter/flutter/issues/132917 is solved.
-          await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.handlePlatformMessage(
-            SystemChannels.textInput.name,
-            SystemChannels.textInput.codec.encodeMethodCall(
-              const MethodCall('TextInputClient.performSelectors', <dynamic>[
-                -1,
-                [MacOsSelectors.deleteBackwardByDecomposingPreviousCharacter]
-              ]),
-            ),
-            (ByteData? data) {},
-          );
 
           // Ensure that a character was deleted.
           final paragraphNode = testContext.findEditContext().document.nodes.first as ParagraphNode;

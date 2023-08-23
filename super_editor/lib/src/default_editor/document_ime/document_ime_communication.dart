@@ -348,7 +348,7 @@ const defaultEditorSelectorHandlers = <String, SuperEditorSelectorHandler>{
   MacOsSelectors.deleteForward: _deleteDownstream,
   MacOsSelectors.deleteWordBackward: _deleteWordUpstream,
   MacOsSelectors.deleteWordForward: _deleteWordDownstream,
-  MacOsSelectors.deleteToBeginningOfLine: _deleteToBegginingOfLine,
+  MacOsSelectors.deleteToBeginningOfLine: _deleteToBeginningOfLine,
   MacOsSelectors.deleteToEndOfLine: _deleteToEndOfLine,
   MacOsSelectors.deleteBackwardByDecomposingPreviousCharacter: _deleteUpstream,
 
@@ -514,7 +514,7 @@ void _deleteWordDownstream(SuperEditorContext context) {
   }
 }
 
-void _deleteToBegginingOfLine(SuperEditorContext context) {
+void _deleteToBeginningOfLine(SuperEditorContext context) {
   bool didMove = false;
 
   didMove = context.commonOps.moveCaretUpstream(
