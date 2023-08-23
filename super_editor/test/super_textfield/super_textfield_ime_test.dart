@@ -180,6 +180,53 @@ void main() {
           // Ensure we sent the value back to the IME.
           expect(sentToPlatform, true);
         });
+
+        testWidgetsOnAllPlatforms(
+            'and don\'t send editing value back to the IME on replacements if matches the expected value',
+            (tester) async {
+          final controller = ImeAttributedTextEditingController(
+            controller: AttributedTextEditingController(
+              text: AttributedText('-->REPLACE'),
+            ),
+          );
+
+          await _pumpSuperTextField(tester, controller);
+
+          // Select the word REPLACE.
+          await tester.doubleTapAtSuperTextField(3);
+
+          bool sentToPlatform = false;
+
+          // Intercept the setEditingState message sent to the platform to check if we sent the value
+          // back to the IME.
+          tester
+              .interceptChannel(SystemChannels.textInput.name) //
+              .interceptMethod(
+            'TextInput.setEditingState',
+            (methodCall) {
+              if (methodCall.method == 'TextInput.setEditingState') {
+                sentToPlatform = true;
+              }
+              return null;
+            },
+          );
+
+          // Simulate the IME sending a replacement with a non-empty composing region.
+          await tester.ime.sendDeltas([
+            const TextEditingDeltaReplacement(
+              oldText: '-->REPLACE',
+              replacementText: 'a',
+              replacedRange: TextRange(start: 3, end: 10),
+              selection: TextSelection.collapsed(offset: 4),
+              composing: TextRange(start: 3, end: 4),
+            ),
+          ], getter: imeClientGetter);
+
+          // Ensure we send the value back to the IME.
+          //
+          // As both us and the IME agree on what's the current editing value, we don't need to send it back.
+          expect(sentToPlatform, false);
+        });
       });
 
       group('inserts line', () {
