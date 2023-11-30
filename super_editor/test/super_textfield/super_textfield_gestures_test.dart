@@ -181,6 +181,143 @@ void main() {
         await gesture.up();
         await gesture.removePointer();
       });
+
+      testWidgetsOnDesktop("scrolls the content when dragging with trackpad (downstream)", (tester) async {
+        final controller = AttributedTextEditingController(
+          text: AttributedText('''
+SuperTextField with a
+content that spans
+multiple lines
+of text to test
+scrolling with 
+a trackpad
+'''),
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 300),
+                child: SuperTextField(
+                  textController: controller,
+                  maxLines: 2,
+                ),
+              ),
+            ),
+          ),
+        );
+
+        // Double tap to select "SuperTextField".
+        await tester.doubleTapAtSuperTextField(0);
+        expect(
+          SuperTextFieldInspector.findSelection(),
+          const TextSelection(baseOffset: 0, extentOffset: 14),
+        );
+
+        // Find text field scrollable.
+        final scrollState = tester.state<ScrollableState>(find.descendant(
+          of: find.byType(SuperTextField),
+          matching: find.byType(Scrollable),
+        ));
+
+        // Ensure the textfield didn't start scrolled.
+        expect(scrollState.position.pixels, 0.0);
+
+        // Simulate the user starting a gesture with two fingers
+        // somewhere close to the beginning of the text.
+        final gesture = await tester.startGesture(
+          tester.getTopLeft(find.byType(SuperTextField)) + const Offset(10, 10),
+          kind: PointerDeviceKind.trackpad,
+        );
+        await tester.pump();
+
+        // Move a distance big enough to ensure a pan gesture.
+        await gesture.moveBy(const Offset(0, kPanSlop));
+        await tester.pump();
+
+        // Drag up.
+        await gesture.moveBy(const Offset(0, -300));
+        await tester.pump();
+
+        // Ensure the content scrolled down.
+        expect(scrollState.position.pixels, greaterThan(0));
+
+        // Ensure that the selection didn't change.
+        expect(
+          SuperTextFieldInspector.findSelection(),
+          const TextSelection(baseOffset: 0, extentOffset: 14),
+        );
+      });
+
+      testWidgetsOnDesktop("scrolls the content when dragging with trackpad (upstream)", (tester) async {
+        final controller = AttributedTextEditingController(
+          text: AttributedText('''
+SuperTextField with a
+content that spans
+multiple lines
+of text to test
+scrolling with
+a trackpad
+'''),
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 300),
+                child: SuperTextField(
+                  textController: controller,
+                  maxLines: 2,
+                ),
+              ),
+            ),
+          ),
+        );
+
+        // Double tap to select "SuperTextField".
+        await tester.doubleTapAtSuperTextField(0);
+        expect(
+          SuperTextFieldInspector.findSelection(),
+          const TextSelection(baseOffset: 0, extentOffset: 14),
+        );
+
+        // Find text field scrollable.
+        final scrollState = tester.state<ScrollableState>(find.descendant(
+          of: find.byType(SuperTextField),
+          matching: find.byType(Scrollable),
+        ));
+
+        // Jump to the end of the textfield.
+        scrollState.position.jumpTo(scrollState.position.maxScrollExtent);
+        await tester.pump();
+
+        // Simulate the user starting a gesture with two fingers
+        // somewhere close to the end of the text.
+        final gesture = await tester.startGesture(
+          tester.getBottomLeft(find.byType(SuperTextField)) + const Offset(10, -1),
+          kind: PointerDeviceKind.trackpad,
+        );
+        await tester.pump();
+
+        // Move a distance big enough to ensure a pan gesture.
+        await gesture.moveBy(const Offset(0, kPanSlop));
+        await tester.pump();
+
+        // Drag down.
+        await gesture.moveBy(const Offset(0, 300));
+        await tester.pump();
+
+        // Ensure the content scrolled up.
+        expect(scrollState.position.pixels, 0.0);
+
+        // Ensure that the selection didn't change.
+        expect(
+          SuperTextFieldInspector.findSelection(),
+          const TextSelection(baseOffset: 0, extentOffset: 14),
+        );
+      });
     });
 
     group("on mobile", () {
@@ -492,4 +629,11 @@ class _GestureSettings extends DeviceGestureSettings {
 
   @override
   final double panSlop;
+}
+
+TextStyle _textStyleBuilder(Set<Attribution> attributions) {
+  return defaultTextFieldStyleBuilder(attributions).copyWith(
+    color: Colors.black,
+    fontFamily: 'Roboto',
+  );
 }
